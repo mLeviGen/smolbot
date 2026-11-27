@@ -1,0 +1,22 @@
+name: CI
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --diff .
+      - run: python -m pytest -q
+      - run: python -c "import smolbot.__main__, smolbot.bot.handlers, smolbot.core.monitoring, smolbot.transports.ssh"
+      - run: python scripts/check_secrets.py

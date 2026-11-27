@@ -1,0 +1,17 @@
+[[hosts]]
+id = "host-001"
+name = "Google Cloud — Primary"
+transport = "local"
+snt_path = "/home/levi/.local/bin/snt"
+
+[[hosts]]
+id = "host-002"
+name = "Secondary VPS"
+transport = "ssh"
+enabled = false
+address = "example.invalid"
+username = "monitor"
+port = 22
+identity_file = "~/.ssh/smolbot_host002"
+known_hosts = "~/.ssh/known_hosts"
+snt_path = "/home/monitor/.local/bin/snt"

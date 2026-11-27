@@ -5,9 +5,15 @@ import time
 from dataclasses import replace
 
 from aiogram import F, Router
+from aiogram.enums import MessageEntityType
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command, CommandObject
-from aiogram.types import BufferedInputFile, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (
+    BufferedInputFile,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    MessageEntity,
+)
 
 from smolbot.bot.access import Buttons, Page
 from smolbot.bot.views import COMMANDS, HOME, PHASE, SHORTCUTS
@@ -43,26 +49,32 @@ def make_router(access, views, operations):
             ]
         )
 
-    async def show(message, user, text, rows, *, edit=True):
+    async def show(message, user, text, rows, *, edit=True, heading=False):
         # Telegram text is plain. Cap by UTF-16 code units for payloads containing emoji.
         text = text.encode("utf-16-le", errors="replace")[:8000].decode(
             "utf-16-le", errors="ignore"
         )
+        title_size = len(text.partition("\n")[0].encode("utf-16-le")) // 2
+        entities = (
+            [MessageEntity(type=MessageEntityType.BOLD, offset=0, length=title_size)]
+            if heading and title_size
+            else None
+        )
         markup = keyboard(user, rows)
         if edit:
             try:
-                await message.edit_text(text, reply_markup=markup)
+                await message.edit_text(text, reply_markup=markup, entities=entities)
                 return
             except TelegramBadRequest as error:
                 if "message is not modified" in str(error).lower():
                     return
                 if "message can't be edited" not in str(error).lower():
                     raise
-        await message.answer(text, reply_markup=markup)
+        await message.answer(text, reply_markup=markup, entities=entities)
 
     async def render(message, user, page, *, edit=True):
         text, rows = await views.render(user, page)
-        await show(message, user, text, rows, edit=edit)
+        await show(message, user, text, rows, edit=edit, heading=page.route != "help")
 
     @router.message(Command(*COMMANDS))
     async def command_handler(message, command: CommandObject):
@@ -70,7 +82,7 @@ def make_router(access, views, operations):
         if name in SHORTCUTS:
             page = Page("apps", value=SHORTCUTS[name])
         elif name == "system":
-            page = Page("hosts", value="system")
+            page = Page("resources")
         else:
             page = Page("home" if name in {"start", "status"} else name)
         await render(message, message.from_user.id, page, edit=False)
@@ -151,7 +163,7 @@ def make_router(access, views, operations):
                     async with refresh_lock, asyncio.TaskGroup() as tasks:
                         for host in views.monitor.connections:
                             tasks.create_task(views.monitor.refresh(host, manual=True))
-                page = Page("home")
+                page = Page(page.value or "home", number=page.number)
             if page.route == "toggle" and page.value in CATEGORIES:
                 await views.storage.set_preferences(user, category=page.value)
                 page = Page("alerts")

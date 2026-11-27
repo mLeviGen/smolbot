@@ -3,8 +3,17 @@ from dataclasses import replace
 
 from smolbot import __version__
 from smolbot.bot.access import Page
-from smolbot.bot.formatters import application, availability, display, system, timestamp
+from smolbot.bot.formatters import (
+    application,
+    availability,
+    display,
+    percent,
+    resource_summary,
+    system,
+    timestamp,
+)
 from smolbot.core.alerts import CATEGORIES
+from smolbot.core.metrics import resource_metrics
 from smolbot.core.snt import LOG_LINES, Action, SntError
 
 COMMANDS = {
@@ -12,7 +21,7 @@ COMMANDS = {
     "help": "Show commands",
     "status": "Infrastructure overview",
     "hosts": "List hosts",
-    "system": "Show system metrics",
+    "system": "Open resources dashboard",
     "apps": "Browse applications",
     "logs": "Browse application logs",
     "restart": "Restart an application",
@@ -87,16 +96,55 @@ class Views:
             refreshed = max((view.get("last_success") or 0 for view in current), default=0)
             return (
                 (
-                    f"SMOLBOT · Infrastructure overview\n\nHosts: {online}/{len(current)} online"
-                    f"\nApplications: {running}/{len(apps)} running\nWarnings: {warnings}"
-                    f"\nLast successful poll: {timestamp(refreshed)}"
+                    f"SmolBot · Overview\n\n🖥  {online}/{len(current)} online"
+                    f"\n📦  {running}/{len(apps)} applications running\n⚠️  {warnings} warnings"
+                    f"\n\nLast successful poll: {timestamp(refreshed)}"
                 ),
                 [
                     [("Hosts", Page("hosts")), ("Applications", Page("apps"))],
-                    [("System", Page("hosts", value="system")), ("Alerts", Page("alerts"))],
+                    [("Resources", Page("resources")), ("Alerts", Page("alerts"))],
                     [("Settings", Page("settings")), ("Refresh", Page("refresh_all"))],
                 ],
             )
+        if page.route == "resources":
+            samples, rows, warnings = [], [], []
+            for key, conn in hosts.items():
+                if not conn.host.enabled:
+                    continue
+                view = views.get(key, {})
+                metrics = (
+                    view.get("metrics") if view.get("online") and not view.get("stale") else None
+                )
+                available = resource_metrics(metrics or {})
+                if metrics:
+                    samples.append(metrics)
+                    for metric, label in (("cpu", "CPU"), ("ram", "RAM"), ("disk", "Disk")):
+                        value = available[metric]
+                        rendered = percent(value)
+                        if rendered != "N/A" and value >= self.settings.thresholds[metric][0]:
+                            warnings.append(f"{conn.host.name} · {label} {rendered}")
+                detail = (
+                    " / ".join(percent(available[k]) for k in ("cpu", "ram", "disk"))
+                    if metrics
+                    else "No current metrics"
+                )
+                rows.append((f"{conn.host.name[:52]} · {detail}", Page("system", key)))
+            text = (
+                f"SmolBot · Resources\n\n{len(samples)}/{len(rows)} hosts reporting metrics"
+                f"\n\n{resource_summary(samples)}"
+            )
+            if warnings:
+                text += "\n\n⚠️  Above threshold\n" + "\n".join(warnings[:4])
+                if len(warnings) > 4:
+                    text += f"\n+{len(warnings) - 4} more"
+            if rows:
+                text += "\n\nSelect a host · CPU / RAM / Disk"
+            return text, self.paginate(rows, page) + [
+                [
+                    ("Overview", Page("home")),
+                    ("Refresh", Page("refresh_all", number=page.number, value="resources")),
+                ],
+            ]
         if page.route == "help":
             return "\n".join(f"/{name} — {label}" for name, label in COMMANDS.items()), HOME
         if page.route == "version":
@@ -201,7 +249,10 @@ class Views:
                 [("Apps", Page("apps", page.host)), ("System", Page("system", page.host))],
                 [
                     ("Refresh", replace(page, route="refresh", value=page.route)),
-                    ("Back", Page("host", page.host) if page.route == "system" else Page("hosts")),
+                    (
+                        "Resources" if page.route == "system" else "Hosts",
+                        Page("resources") if page.route == "system" else Page("hosts"),
+                    ),
                 ],
             ]
         app = status.get("apps", {}).get(page.app)

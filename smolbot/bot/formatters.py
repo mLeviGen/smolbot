@@ -40,6 +40,50 @@ def availability(host, view):
     return "Online"
 
 
+def meter(value):
+    if percent(value) == "N/A":
+        return "N/A"
+    filled = round(value / 10)
+    return f"{'▰' * filled}{'▱' * (10 - filled)}  {percent(value)}"
+
+
+def resource_summary(samples):
+    cpu_weights = [
+        (sample["cpu_count"], sample["cpu_percent"])
+        for sample in samples
+        if type(sample.get("cpu_count")) is int
+        and 0 < sample["cpu_count"] < 2**31
+        and percent(sample.get("cpu_percent")) != "N/A"
+    ]
+    cores = sum(count for count, _ in cpu_weights)
+    cpu = sum(count * load for count, load in cpu_weights) / cores if cores else None
+    lines = [f"CPU · {cores} cores · {len(cpu_weights)} hosts", meter(cpu)]
+
+    for label, key in (("RAM", "memory"), ("Disk", "disk")):
+        pairs = []
+        for sample in samples:
+            metric = sample.get(key)
+            if isinstance(metric, dict):
+                used, total = metric.get("used"), metric.get("total")
+                if (
+                    type(used) is int
+                    and type(total) is int
+                    and 0 <= used <= total < 2**70
+                    and total
+                ):
+                    pairs.append((used, total))
+        used = sum(a for a, _ in pairs)
+        capacity = sum(b for _, b in pairs)
+        volumes = f" · {gib(used)} / {gib(capacity)}" if capacity else ""
+        lines.extend(
+            (
+                f"\n{label} · {len(pairs)} hosts{volumes}",
+                meter(used * 100 / capacity if capacity else None),
+            )
+        )
+    return "\n".join(lines)
+
+
 def system(metrics):
     metrics = metrics or {}
     memory = metrics.get("memory")
@@ -53,14 +97,15 @@ def system(metrics):
             f"OS: {display(metrics.get('os'))}",
             f"Architecture: {display(metrics.get('arch'))}",
             f"Logical CPUs: {display(metrics.get('cpu_count'))}",
-            f"CPU: {percent(metrics.get('cpu_percent'))}",
+            "",
+            f"CPU  {meter(metrics.get('cpu_percent'))}",
             (
                 f"RAM: {gib(memory.get('used'))} used / {gib(memory.get('total'))} · "
-                f"{gib(memory.get('available'))} available · {percent(memory.get('percent'))}"
+                f"{gib(memory.get('available'))} available\n{meter(memory.get('percent'))}"
             ),
             (
                 f"Disk: {gib(disk.get('used'))} used / {gib(disk.get('total'))} · "
-                f"{gib(disk.get('free'))} free · {percent(disk.get('percent'))}"
+                f"{gib(disk.get('free'))} free\n{meter(disk.get('percent'))}"
             ),
             f"System uptime: {duration(metrics.get('uptime_seconds'))}",
             "Load average: "

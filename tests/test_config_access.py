@@ -54,7 +54,9 @@ class ConfigurationTests(unittest.TestCase):
         self.assertNotIn("should-not-print", str(error.exception))
 
     def test_multihost_ssh_paths(self):
-        self.hosts.write_text(self.hosts.read_text() + """
+        self.hosts.write_text(
+            self.hosts.read_text()
+            + """
 [[hosts]]
 id="second"
 name="Second"
@@ -73,7 +75,8 @@ username="monitor"
 identity_file="keys/bot"
 snt_path="/usr/bin/snt"
 enabled=false
-""")
+"""
+        )
         hosts = load_settings(self.env, cwd=self.cwd).hosts
         self.assertEqual([h.id for h in hosts], ["test", "second", "third"])
         self.assertEqual(Path(hosts[1].identity_file), self.cwd / "keys" / "bot")

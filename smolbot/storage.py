@@ -141,10 +141,12 @@ class Storage:
 
     async def operation(self, user, host, app, action):
         return await self.call(
-            lambda db: db.execute(
-                "INSERT INTO operations(user,host,app,action,outcome,updated) VALUES (?,?,?,?,?,?)",
-                (user, host, app, action, "submitting", time.time()),
-            ).lastrowid
+            lambda db: (
+                db.execute(
+                    "INSERT INTO operations(user,host,app,action,outcome,updated) VALUES (?,?,?,?,?,?)",
+                    (user, host, app, action, "submitting", time.time()),
+                ).lastrowid
+            )
         )
 
     async def outcome(self, operation, outcome):
@@ -165,8 +167,7 @@ class Storage:
             ):
                 db.execute(f"DELETE FROM {table} WHERE {column} < ?", (now - days * 86400,))
             db.execute(
-                "DELETE FROM deliveries WHERE event IN "
-                "(SELECT id FROM events WHERE created < ?)",
+                "DELETE FROM deliveries WHERE event IN (SELECT id FROM events WHERE created < ?)",
                 (now - 3600,),
             )
 

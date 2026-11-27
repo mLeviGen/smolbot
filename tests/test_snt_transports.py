@@ -101,9 +101,8 @@ class SntTests(unittest.IsolatedAsyncioTestCase):
             await self.client.logs("worker", 200)
 
     def test_key_and_authorization_header_are_masked(self):
-        value = (
-            "Authorization: Bearer sample-value\n-----BEGIN OPENSSH " "PRIVATE KEY-----\npayload"
-        )
+        marker = "-----BEGIN OPENSSH"
+        value = f"Authorization: Bearer sample-value\n{marker} PRIVATE KEY-----\npayload"
         self.assertNotIn("sample-value", redact(value, ()))
         self.assertNotIn("payload", redact(value, ()))
 

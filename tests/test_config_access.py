@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from aiogram.types import CallbackQuery, Chat, Message, User
+from aiogram.types import CallbackQuery, Chat, InaccessibleMessage, Message, User
 
 from smolbot.bot.access import Buttons, Page, PrivateAccess, authorized
 from smolbot.config import ConfigError, load_settings
@@ -86,7 +86,7 @@ enabled=false
 def message(user=1, chat=1, kind="private"):
     return Message(
         message_id=1,
-        date=0,
+        date=1_700_000_000,
         chat=Chat(id=chat, type=kind),
         from_user=User(id=user, is_bot=False, first_name="Test"),
     )
@@ -111,6 +111,8 @@ class AuthorizationTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(authorized(query, {1}))
         inline = query.model_copy(update={"message": None, "inline_message_id": "inline"})
         self.assertFalse(authorized(inline, {1}))
+        inaccessible = InaccessibleMessage(message_id=1, date=0, chat=message().chat)
+        self.assertFalse(authorized(query.model_copy(update={"message": inaccessible}), {1}))
 
     def test_opaque_buttons_expire_and_are_user_bound(self):
         now = [0]

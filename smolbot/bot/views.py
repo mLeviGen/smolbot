@@ -86,9 +86,11 @@ class Views:
             running = sum(app["status"] == "running" for app in apps)
             refreshed = max((view.get("last_success") or 0 for view in current), default=0)
             return (
-                f"SMOLBOT · Infrastructure overview\n\nHosts: {online}/{len(current)} online"
-                f"\nApplications: {running}/{len(apps)} running\nWarnings: {warnings}"
-                f"\nLast successful poll: {timestamp(refreshed)}",
+                (
+                    f"SMOLBOT · Infrastructure overview\n\nHosts: {online}/{len(current)} online"
+                    f"\nApplications: {running}/{len(apps)} running\nWarnings: {warnings}"
+                    f"\nLast successful poll: {timestamp(refreshed)}"
+                ),
                 [
                     [("Hosts", Page("hosts")), ("Applications", Page("apps"))],
                     [("System", Page("hosts", value="system")), ("Alerts", Page("alerts"))],
@@ -135,9 +137,11 @@ class Views:
             )
         if page.route == "settings":
             return (
-                f"Settings\nPoll interval: {self.settings.poll_interval}s\n"
-                f"Event retention: {self.settings.retention_days} days\n"
-                f"Concurrent hosts: {self.settings.concurrent_hosts}",
+                (
+                    f"Settings\nPoll interval: {self.settings.poll_interval}s\n"
+                    f"Event retention: {self.settings.retention_days} days\n"
+                    f"Concurrent hosts: {self.settings.concurrent_hosts}"
+                ),
                 [[("Alerts", Page("alerts"))]] + HOME,
             )
         if page.route == "apps":

@@ -155,7 +155,8 @@ def main():
     except (OSError, sqlite3.Error, RuntimeError) as error:
         log.error("SmolBot stopped (%s)", type(error).__name__)
         return 1
-    except Exception as error:
+    # Keep unexpected framework errors from exposing request data.
+    except Exception as error:  # noqa: BLE001
         log.error("SmolBot startup or polling failed (%s)", type(error).__name__)
         return 1
     return 0

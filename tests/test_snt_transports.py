@@ -144,9 +144,9 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                     "smolbot.transports.ssh.execute",
                     return_value=Result(255, "", error),
                 ),
+                self.assertRaisesRegex(TransportError, expected),
             ):
-                with self.assertRaisesRegex(TransportError, expected):
-                    await self.ssh.run(("/snt", "status", "--json"))
+                await self.ssh.run(("/snt", "status", "--json"))
 
     async def test_real_local_subprocess_limits(self):
         result = await LocalTransport(5).run(

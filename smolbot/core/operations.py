@@ -41,9 +41,13 @@ def outcome_for(action, before, after, previous):
         and after.last_check != before.last_check
     ):
         return "confirmed"
-    if action == Action.RESTART and previous.status != "running" and after.status == "running":
-        if before.status == "running":
-            return "confirmed"
+    if (
+        action == Action.RESTART
+        and previous.status != "running"
+        and after.status == "running"
+        and before.status == "running"
+    ):
+        return "confirmed"
     return None
 
 

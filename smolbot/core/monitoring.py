@@ -142,7 +142,8 @@ class Monitor:
             return await function(), None
         except OBSERVATION_ERRORS as error:
             return None, str(error)
-        except Exception as error:
+        # Contain failures from host-specific providers.
+        except Exception as error:  # noqa: BLE001
             log.warning("Host probe failed (%s)", type(error).__name__)
             return None, "Host probe failed"
 
@@ -201,6 +202,7 @@ class Monitor:
                 if last_prune is None or now - last_prune >= 3600:
                     await self.storage.prune(now, self.settings.retention_days)
                     last_prune = now
-            except Exception as error:
+            # A failed cycle can be retried without stopping Telegram polling.
+            except Exception as error:  # noqa: BLE001
                 log.warning("Monitoring cycle failed (%s)", type(error).__name__)
             await asyncio.sleep(self.settings.poll_interval)

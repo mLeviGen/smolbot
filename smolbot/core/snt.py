@@ -57,7 +57,7 @@ def parse_status(output, secrets=()):
     try:
         data = json.loads(output)
         if not isinstance(data, dict):
-            raise ValueError
+            raise TypeError
         if type(data.get("schema")) is not int or data["schema"] != 1:
             raise SntError("Unsupported SNT status schema")
         daemon = data["daemon"]

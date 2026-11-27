@@ -5,13 +5,12 @@ from unittest.mock import AsyncMock
 from aiogram import Bot, Dispatcher
 from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage
 from aiogram.types import CallbackQuery, Update
+from test_config_access import message
 
 from smolbot.bot.access import PrivateAccess
 from smolbot.bot.handlers import make_router
 from smolbot.bot.views import Views
 from smolbot.core.operations import Operations
-
-from test_config_access import message
 
 
 class TelegramUiTests(unittest.IsolatedAsyncioTestCase):

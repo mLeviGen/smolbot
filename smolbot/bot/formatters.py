@@ -54,10 +54,14 @@ def system(metrics):
             f"Architecture: {display(metrics.get('arch'))}",
             f"Logical CPUs: {display(metrics.get('cpu_count'))}",
             f"CPU: {percent(metrics.get('cpu_percent'))}",
-            f"RAM: {gib(memory.get('used'))} used / {gib(memory.get('total'))} · "
-            f"{gib(memory.get('available'))} available · {percent(memory.get('percent'))}",
-            f"Disk: {gib(disk.get('used'))} used / {gib(disk.get('total'))} · "
-            f"{gib(disk.get('free'))} free · {percent(disk.get('percent'))}",
+            (
+                f"RAM: {gib(memory.get('used'))} used / {gib(memory.get('total'))} · "
+                f"{gib(memory.get('available'))} available · {percent(memory.get('percent'))}"
+            ),
+            (
+                f"Disk: {gib(disk.get('used'))} used / {gib(disk.get('total'))} · "
+                f"{gib(disk.get('free'))} free · {percent(disk.get('percent'))}"
+            ),
             f"System uptime: {duration(metrics.get('uptime_seconds'))}",
             "Load average: "
             + (" / ".join(map(display, load[:3])) if isinstance(load, (list, tuple)) else "N/A"),

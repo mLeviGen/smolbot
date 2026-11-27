@@ -38,6 +38,7 @@ async def run_alerts(bot, storage, settings):
         delay = 5
         try:
             delay = await deliver(bot, storage, settings)
-        except Exception as error:
+        # Keep the outbox running after a delivery or storage error.
+        except Exception as error:  # noqa: BLE001
             log.warning("Alert poll failed (%s)", type(error).__name__)
         await asyncio.sleep(max(1, delay))

@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+hosts.toml
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+secrets/
+*.egg-info/

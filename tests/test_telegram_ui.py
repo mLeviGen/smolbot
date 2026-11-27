@@ -10,27 +10,32 @@ from test_config_access import message
 from smolbot.bot.access import PrivateAccess
 from smolbot.bot.handlers import make_router
 from smolbot.bot.views import Views
+from smolbot.config import Host
 from smolbot.core.operations import Operations
 
 
 class TelegramUiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        settings = SimpleNamespace(users={1}, concurrent_hosts=1)
+        settings = SimpleNamespace(
+            users={1},
+            concurrent_hosts=1,
+            thresholds={"cpu": (85, 95), "ram": (80, 90), "disk": (80, 90)},
+        )
         self.session = AsyncMock()
         self.bot = Bot("123:synthetic-value", session=self.session)
         self.dispatcher = Dispatcher()
-        monitor = SimpleNamespace(connections={}, views={})
+        self.monitor = SimpleNamespace(connections={}, views={}, refresh=AsyncMock())
         storage = AsyncMock()
         self.dispatcher.include_router(
             make_router(
                 PrivateAccess(settings.users),
-                Views(monitor, settings, storage),
+                Views(self.monitor, settings, storage),
                 Operations({}, settings, storage),
             )
         )
 
-    async def feed_message(self, user, chat, kind):
-        data = message(user, chat, kind).model_copy(update={"text": "/start"})
+    async def feed_message(self, user, chat, kind, text="/start"):
+        data = message(user, chat, kind).model_copy(update={"text": text})
         await self.dispatcher.feed_update(self.bot, Update(update_id=1, message=data))
 
     async def feed_button(self, user, value):
@@ -49,12 +54,51 @@ class TelegramUiTests(unittest.IsolatedAsyncioTestCase):
         method = self.session.await_args.args[1]
         self.assertIsInstance(method, SendMessage)
         self.assertIn("0/0 online", method.text)
+        self.assertEqual(method.entities[0].type, "bold")
+        self.assertEqual(method.entities[0].length, len(method.text.splitlines()[0]))
         token = method.reply_markup.inline_keyboard[0][0].callback_data
         self.assertLessEqual(len(token.encode()), 64)
         calls = await self.feed_button(1, token)
         self.assertIsInstance(calls[-2], AnswerCallbackQuery)
         self.assertIsInstance(calls[-1], EditMessageText)
         self.assertEqual(calls[-1].text, "Select a host")
+
+    async def test_resources_aggregate_current_metrics_and_refresh_same_screen(self):
+        for key in ("primary", "secondary", "stale"):
+            host = Host(id=key, name=key, transport="local", snt_path="/usr/bin/snt")
+            self.monitor.connections[key] = SimpleNamespace(host=host)
+
+        def sample(cores, cpu, disk, stale=False):
+            return {
+                "online": True,
+                "stale": stale,
+                "metrics": {
+                    "cpu_count": cores,
+                    "cpu_percent": cpu,
+                    "disk": {"used": disk, "total": 100, "percent": disk},
+                },
+            }
+
+        self.monitor.views.update(
+            primary=sample(2, 20, 20), secondary=sample(1, 80, 85), stale=sample(8, 100, 100, True)
+        )
+        await self.feed_message(1, 1, "private", "/system")
+        method = self.session.await_args.args[1]
+        self.assertIn("2/3 hosts reporting metrics", method.text)
+        self.assertIn("40.0%", method.text)
+        self.assertIn("52.5%", method.text)
+        self.assertIn("85.0%", method.text)
+        self.assertNotIn("100.0%", method.text)
+
+        refresh = method.reply_markup.inline_keyboard[-1][1].callback_data
+        calls = await self.feed_button(1, refresh)
+        self.assertEqual(calls[-1].text, method.text)
+        self.assertEqual(self.monitor.refresh.await_count, 3)
+
+        server = calls[-1].reply_markup.inline_keyboard[1][0].callback_data
+        calls = await self.feed_button(1, server)
+        self.assertIn("secondary", calls[-1].text)
+        self.assertIn("85.0%", calls[-1].text)
 
     async def test_private_allowlist_on_router_and_forged_callbacks(self):
         await self.feed_message(2, 2, "private")

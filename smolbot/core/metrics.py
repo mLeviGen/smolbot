@@ -47,8 +47,12 @@ def disk():
     total, used, free = shutil.disk_usage('/')
     return dict(total=total, used=used, free=free, percent=round(used*100/total, 1))
 
+# Debian 11 ships Python 3.9, before platform added freedesktop_os_release.
+read_os_release = getattr(platform, "freedesktop_os_release", dict)
+release = optional(read_os_release) or {}
+
 print(json.dumps(dict(hostname=socket.gethostname(),
-    os=optional(lambda: platform.freedesktop_os_release().get('PRETTY_NAME')) or platform.system(),
+    os=release.get('PRETTY_NAME') or platform.system(),
     arch=platform.machine(), cpu_count=os.cpu_count(), cpu_percent=optional(cpu),
     memory=optional(memory), disk=optional(disk), load_avg=optional(os.getloadavg),
     uptime_seconds=optional(lambda: int(float(Path('/proc/uptime').read_text().split()[0]))))))
